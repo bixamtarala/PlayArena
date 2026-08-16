@@ -2,93 +2,29 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'services/teen_patti_engine.dart';
 
-class TeenPattiScreen extends StatefulWidget {
-  const TeenPattiScreen({super.key});
-  @override State<TeenPattiScreen> createState() => _TeenPattiScreenState();
+const _bg=Color(0xFF06131F),_surface=Color(0xFF102B3D),_teal=Color(0xFF18D6B0),_amber=Color(0xFFFFB547);
+class TeenPattiScreen extends StatefulWidget{const TeenPattiScreen({super.key});@override State<TeenPattiScreen> createState()=>_TeenPattiScreenState();}
+class _TeenPattiScreenState extends State<TeenPattiScreen>{
+ final _random=Random();final List<String> _deck=[for(final s in ['♠','♥','♦','♣'])for(final r in ['A','K','Q','J','10','9','8','7','6','5','4','3','2'])'$r$s'];
+ List<String> cards=[],bot2=[],bot3=[];int pot=30,turnStake=10,turn=0,moves=0,handNo=0;bool seen=false,folded=false,finished=false,revealBots=false,bot2Folded=false,bot3Folded=false,botBusy=false;String status='Table ready • Boot 10 chips';final List<String> actionLog=[];
+ void deal(){final copy=[..._deck]..shuffle(_random);setState((){handNo++;cards=copy.sublist(0,3);bot2=copy.sublist(3,6);bot3=copy.sublist(6,9);pot=30;turnStake=10;turn=0;moves=0;seen=false;folded=false;finished=false;revealBots=false;bot2Folded=false;bot3Folded=false;botBusy=false;status='Your turn • Blind 10';actionLog..clear()..add('Hand #$handNo started • Boot 10 each');});}
+ void seeCards()=>setState((){seen=true;status='Your hand • ${TeenPattiEngine.evaluate(cards).label}';actionLog.add('You saw your cards');});
+ void playerBet({bool raiseBet=false}){if(!_canAct)return;setState((){if(raiseBet)turnStake=min(turnStake*2,320);pot+=turnStake;moves++;final a=raiseBet?'RAISE $turnStake':seen?'CHAAL $turnStake':'BLIND $turnStake';status='You played $a';actionLog.add('You • $a');turn=1;botBusy=true;});_runBots();}
+ Future<void> _runBots()async{for(final bot in[1,2]){if(finished)return;if((bot==1&&bot2Folded)||(bot==2&&bot3Folded))continue;await Future<void>.delayed(const Duration(milliseconds:600));if(!mounted)return;final hand=bot==1?bot2:bot3;final strength=TeenPattiEngine.evaluate(hand).rank.index;final shouldFold=moves>3&&strength<=1&&_random.nextInt(100)<35;setState((){turn=bot;if(shouldFold){if(bot==1)bot2Folded=true;else bot3Folded=true;status='Player ${bot+1} packed';actionLog.add('Player ${bot+1} • PACK');}else{pot+=turnStake;moves++;status='Player ${bot+1} played $turnStake';actionLog.add('Player ${bot+1} • CHAAL $turnStake');}});if(_activePlayers<=1){_finishLastPlayer();return;}}if(!mounted||finished)return;setState((){turn=0;botBusy=false;status='Your turn • Stake $turnStake';});if(moves>=9)showdown();}
+ int get _activePlayers=>(folded?0:1)+(bot2Folded?0:1)+(bot3Folded?0:1);bool get _canAct=>cards.isNotEmpty&&!folded&&!finished&&!botBusy&&turn==0;
+ void fold(){if(!_canAct)return;setState((){folded=true;moves++;status='You packed';actionLog.add('You • PACK');});if(_activePlayers<=1)_finishLastPlayer();else{setState(()=>botBusy=true);_runBots();}}
+ void _finishLastPlayer(){setState((){finished=true;revealBots=true;botBusy=false;if(!folded)status='YOU WIN • opponents packed';else if(!bot2Folded)status='PLAYER 2 WINS';else status='PLAYER 3 WINS';actionLog.add(status);});}
+ void showdown(){if(cards.isEmpty||finished)return;final active=<({int id,List<String> hand})>[];if(!folded)active.add((id:0,hand:cards));if(!bot2Folded)active.add((id:1,hand:bot2));if(!bot3Folded)active.add((id:2,hand:bot3));var best=active.first;for(final p in active.skip(1)){if(TeenPattiEngine.compare(p.hand,best.hand)>0)best=p;}setState((){finished=true;revealBots=true;seen=true;botBusy=false;status=best.id==0?'YOU WIN • ${TeenPattiEngine.evaluate(cards).label}':'PLAYER ${best.id+1} WINS • ${TeenPattiEngine.evaluate(best.hand).label}';actionLog.add('SHOW • $status');});}
+ @override Widget build(BuildContext context)=>Scaffold(backgroundColor:_bg,appBar:AppBar(title:const Text('Teen Patti Arena'),actions:[Padding(padding:const EdgeInsets.only(right:14),child:Center(child:Text('HAND #${handNo==0?'-':handNo}',style:const TextStyle(color:_teal,fontWeight:FontWeight.w900))))]),body:SafeArea(child:Column(children:[
+  Padding(padding:const EdgeInsets.fromLTRB(12,8,12,4),child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[_Seat(name:'PLAYER 2',cards:bot2,reveal:revealBots,folded:bot2Folded,active:turn==1&&!finished),Column(children:[const Text('TABLE POT',style:TextStyle(fontSize:9,color:Colors.white54,letterSpacing:1)),Text('$pot',style:const TextStyle(color:_amber,fontSize:30,fontWeight:FontWeight.w900)),Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:3),decoration:BoxDecoration(color:_surface,borderRadius:BorderRadius.circular(10)),child:Text('STAKE $turnStake',style:const TextStyle(fontSize:10,fontWeight:FontWeight.w800)))]),_Seat(name:'PLAYER 3',cards:bot3,reveal:revealBots,folded:bot3Folded,active:turn==2&&!finished)])),
+  Expanded(child:Container(width:double.infinity,margin:const EdgeInsets.all(12),decoration:BoxDecoration(gradient:const RadialGradient(colors:[Color(0xFF116348),Color(0xFF073A32)]),borderRadius:BorderRadius.circular(100),border:Border.all(color:turn==0&&!finished?_amber:_teal.withValues(alpha:.35),width:3),boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:.35),blurRadius:18)]),child:Stack(alignment:Alignment.center,children:[Positioned(top:18,child:Row(children:[_MiniCard(hidden:!revealBots||bot2Folded,value:bot2.isEmpty?'?':bot2[0]),const SizedBox(width:5),_MiniCard(hidden:!revealBots||bot2Folded,value:bot2.isEmpty?'?':bot2[1]),const SizedBox(width:5),_MiniCard(hidden:!revealBots||bot2Folded,value:bot2.isEmpty?'?':bot2[2])])),Positioned(bottom:18,child:Row(children:cards.isEmpty?[const Text('Tap DEAL to begin',style:TextStyle(color:Colors.white70))]:cards.map((c)=>_CardFace(value:seen||finished?c:'?')).toList())),Column(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.toll,color:_amber,size:34),const SizedBox(height:5),Text(status,textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.w900)),if(botBusy)...[const SizedBox(height:10),const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2,color:_teal))]])]))),
+  _You(active:turn==0&&!finished,folded:folded,seen:seen,hand:cards.isNotEmpty&&seen?TeenPattiEngine.evaluate(cards).label:null),const SizedBox(height:8),
+  Padding(padding:const EdgeInsets.symmetric(horizontal:10),child:Wrap(spacing:7,runSpacing:7,alignment:WrapAlignment.center,children:[FilledButton(onPressed:botBusy?null:deal,child:Text(finished||cards.isEmpty?'DEAL':'NEW HAND')),OutlinedButton(onPressed:!_canAct||seen?null:seeCards,child:const Text('SEE')),OutlinedButton(onPressed:_canAct?()=>playerBet():null,child:Text(seen?'CHAAL $turnStake':'BLIND $turnStake')),OutlinedButton(onPressed:_canAct?()=>playerBet(raiseBet:true):null,child:const Text('RAISE')),OutlinedButton(onPressed:_canAct&&moves>=3?showdown:null,child:const Text('SHOW')),OutlinedButton(onPressed:_canAct?fold:null,child:const Text('PACK'))])),
+  if(actionLog.isNotEmpty)Container(height:50,margin:const EdgeInsets.fromLTRB(12,10,12,0),padding:const EdgeInsets.symmetric(horizontal:12),decoration:BoxDecoration(color:_surface,borderRadius:BorderRadius.circular(12)),child:Row(children:[const Icon(Icons.history,size:17,color:_teal),const SizedBox(width:8),Expanded(child:Text(actionLog.last,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:Colors.white70)))])),
+  const Padding(padding:EdgeInsets.all(10),child:Text('Offline free-play table • Virtual chips have no cash value • Account balance remains admin-controlled.',textAlign:TextAlign.center,style:TextStyle(fontSize:10,color:Colors.white54)))
+ ])));
 }
-
-class _TeenPattiScreenState extends State<TeenPattiScreen> {
-  final _random = Random();
-  final List<String> _deck = [for (final s in ['♠','♥','♦','♣']) for (final r in ['A','K','Q','J','10','9','8','7','6','5','4','3','2']) '$r$s'];
-  List<String> cards=[], bot2=[], bot3=[];
-  int pot=30, turnStake=10, turn=0, moves=0;
-  bool seen=false, folded=false, finished=false, revealBots=false, bot2Folded=false, bot3Folded=false, botBusy=false;
-  String status='Table ready • Boot 10 chips';
-
-  void deal(){final copy=[..._deck]..shuffle(_random);setState((){cards=copy.sublist(0,3);bot2=copy.sublist(3,6);bot3=copy.sublist(6,9);pot=30;turnStake=10;turn=0;moves=0;seen=false;folded=false;finished=false;revealBots=false;bot2Folded=false;bot3Folded=false;botBusy=false;status='Your turn • Blind 10';});}
-  void seeCards()=>setState((){seen=true;status='Your hand: ${TeenPattiEngine.evaluate(cards).label}';});
-
-  void playerBet({bool raiseBet=false}){
-    if(!_canAct){return;}
-    setState((){if(raiseBet){turnStake=min(turnStake*2,320);}pot+=turnStake;moves++;status=raiseBet?'You raised to $turnStake':'You played ${seen?'Chaal':'Blind'} $turnStake';turn=1;botBusy=true;});
-    _runBots();
-  }
-
-  Future<void> _runBots() async {
-    for(final bot in [1,2]){
-      if(finished){return;}
-      if((bot==1&&bot2Folded)||(bot==2&&bot3Folded)){continue;}
-      await Future<void>.delayed(const Duration(milliseconds:650));
-      if(!mounted){return;}
-      final hand=bot==1?bot2:bot3;
-      final strength=TeenPattiEngine.evaluate(hand).rank.index;
-      final shouldFold=moves>3 && strength<=1 && _random.nextInt(100)<35;
-      setState((){
-        turn=bot;
-        if(shouldFold){
-          if(bot==1){bot2Folded=true;}else{bot3Folded=true;}
-          status='Player ${bot+1} packed';
-        } else {
-          final botStake=turnStake;pot+=botStake;moves++;status='Player ${bot+1} played $botStake';
-        }
-      });
-      if(_activePlayers<=1){_finishLastPlayer();return;}
-    }
-    if(!mounted||finished){return;}
-    setState((){turn=0;botBusy=false;status='Your turn • Stake $turnStake';});
-    if(moves>=9){showdown();}
-  }
-
-  int get _activePlayers=>(folded?0:1)+(bot2Folded?0:1)+(bot3Folded?0:1);
-  bool get _canAct=>cards.isNotEmpty&&!folded&&!finished&&!botBusy&&turn==0;
-
-  void fold(){
-    if(!_canAct){return;}
-    setState((){folded=true;moves++;status='You packed';});
-    if(_activePlayers<=1){_finishLastPlayer();}else{setState(()=>botBusy=true);_runBots();}
-  }
-
-  void _finishLastPlayer(){setState((){finished=true;revealBots=true;botBusy=false;if(!folded){status='You win • other players packed';}else if(!bot2Folded){status='Player 2 wins';}else{status='Player 3 wins';}});}
-
-  void showdown(){
-    if(cards.isEmpty||finished){return;}
-    final active=<({int id,List<String> hand})>[];
-    if(!folded){active.add((id:0,hand:cards));}
-    if(!bot2Folded){active.add((id:1,hand:bot2));}
-    if(!bot3Folded){active.add((id:2,hand:bot3));}
-    var best=active.first;
-    for(final p in active.skip(1)){if(TeenPattiEngine.compare(p.hand,best.hand)>0){best=p;}}
-    setState((){finished=true;revealBots=true;seen=true;botBusy=false;status=best.id==0?'You win • ${TeenPattiEngine.evaluate(cards).label}':'Player ${best.id+1} wins • ${TeenPattiEngine.evaluate(best.hand).label}';});
-  }
-
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Teen Patti • Preview')),body:SafeArea(child:Column(children:[
-    Padding(padding:const EdgeInsets.all(10),child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[_Bot(name:'Player 2',cards:bot2,reveal:revealBots,folded:bot2Folded,active:turn==1&&!finished),Column(children:[const Text('POT',style:TextStyle(fontSize:11)),Text('$pot',style:const TextStyle(color:Colors.amber,fontSize:24,fontWeight:FontWeight.bold)),Text('Stake $turnStake',style:const TextStyle(fontSize:10))]),_Bot(name:'Player 3',cards:bot3,reveal:revealBots,folded:bot3Folded,active:turn==2&&!finished)])),
-    Expanded(child:Container(margin:const EdgeInsets.all(10),decoration:BoxDecoration(color:const Color(0xFF0D5B3B),borderRadius:BorderRadius.circular(120),border:Border.all(color:turn==0&&!finished?Colors.amber:Colors.white24,width:3)),child:Center(child:Padding(padding:const EdgeInsets.all(20),child:Column(mainAxisSize:MainAxisSize.min,children:[Text(status,textAlign:TextAlign.center,style:const TextStyle(fontWeight:FontWeight.bold)),if(botBusy)...[const SizedBox(height:12),const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2))]]))))),
-    _Player(name:'You',chips:'Admin managed',active:turn==0&&!finished,folded:folded),const SizedBox(height:8),
-    Row(mainAxisAlignment:MainAxisAlignment.center,children:cards.isEmpty?[const Text('Tap DEAL to start')]:cards.map((c)=>_CardFace(value:seen||finished?c:'?')).toList()),
-    if(cards.isNotEmpty&&seen)Padding(padding:const EdgeInsets.only(top:6),child:Text(TeenPattiEngine.evaluate(cards).label,style:const TextStyle(color:Colors.amber,fontWeight:FontWeight.bold))),
-    const SizedBox(height:10),Padding(padding:const EdgeInsets.symmetric(horizontal:10),child:Wrap(spacing:7,runSpacing:7,alignment:WrapAlignment.center,children:[
-      FilledButton(onPressed:botBusy?null:deal,child:Text(finished||cards.isEmpty?'DEAL':'NEW HAND')),
-      OutlinedButton(onPressed:!_canAct||seen?null:seeCards,child:const Text('SEE')),
-      OutlinedButton(onPressed:_canAct?()=>playerBet():null,child:Text(seen?'CHAAL $turnStake':'BLIND $turnStake')),
-      OutlinedButton(onPressed:_canAct?()=>playerBet(raiseBet:true):null,child:const Text('RAISE')),
-      OutlinedButton(onPressed:_canAct&&moves>=3?showdown:null,child:const Text('SHOW')),
-      OutlinedButton(onPressed:_canAct?fold:null,child:const Text('PACK')),
-    ])),
-    const Padding(padding:EdgeInsets.all(12),child:Text('Offline gameplay preview • Virtual chips have no cash value • Account balance remains admin-controlled.',textAlign:TextAlign.center,style:TextStyle(fontSize:11))),
-  ])));
-}
-
-class _Bot extends StatelessWidget{final String name;final List<String> cards;final bool reveal,folded,active;const _Bot({required this.name,required this.cards,required this.reveal,required this.folded,required this.active});@override Widget build(BuildContext context)=>AnimatedContainer(duration:const Duration(milliseconds:250),padding:const EdgeInsets.all(5),decoration:BoxDecoration(border:Border.all(color:active?Colors.amber:Colors.transparent),borderRadius:BorderRadius.circular(12)),child:Column(children:[CircleAvatar(radius:18,child:Icon(folded?Icons.close:Icons.person,size:18)),Text(name,style:const TextStyle(fontSize:11,fontWeight:FontWeight.bold)),if(folded)const Text('PACKED',style:TextStyle(fontSize:9,color:Colors.redAccent))else if(cards.isNotEmpty)Text(reveal?TeenPattiEngine.evaluate(cards).label:'3 cards',style:const TextStyle(fontSize:10))]));}
-class _Player extends StatelessWidget{final String name,chips;final bool active,folded;const _Player({required this.name,required this.chips,required this.active,required this.folded});@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.all(5),decoration:BoxDecoration(border:Border.all(color:active?Colors.amber:Colors.transparent),borderRadius:BorderRadius.circular(12)),child:Column(children:[CircleAvatar(child:Icon(folded?Icons.close:Icons.person)),Text(name,style:const TextStyle(fontWeight:FontWeight.bold)),Text(folded?'PACKED':chips,style:TextStyle(fontSize:11,color:folded?Colors.redAccent:null))]));}
-class _CardFace extends StatelessWidget{final String value;const _CardFace({required this.value});@override Widget build(BuildContext context){final red=value.contains('♥')||value.contains('♦');return Container(width:62,height:88,margin:const EdgeInsets.symmetric(horizontal:4),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(8)),alignment:Alignment.center,child:Text(value,style:TextStyle(color:red?Colors.red:Colors.black,fontSize:20,fontWeight:FontWeight.bold)));}}
+class _Seat extends StatelessWidget{final String name;final List<String> cards;final bool reveal,folded,active;const _Seat({required this.name,required this.cards,required this.reveal,required this.folded,required this.active});@override Widget build(BuildContext context)=>AnimatedContainer(duration:const Duration(milliseconds:250),padding:const EdgeInsets.all(7),decoration:BoxDecoration(color:active?const Color(0xFF0B4B48):_surface,border:Border.all(color:active?_teal:Colors.white10),borderRadius:BorderRadius.circular(13)),child:Column(children:[CircleAvatar(radius:18,backgroundColor:folded?Colors.red.shade900:const Color(0xFF183B50),child:Icon(folded?Icons.close:Icons.person,size:18)),const SizedBox(height:3),Text(name,style:const TextStyle(fontSize:9,fontWeight:FontWeight.w900)),Text(folded?'PACKED':cards.isEmpty?'WAITING':reveal?TeenPattiEngine.evaluate(cards).label:'3 CARDS',style:TextStyle(fontSize:8,color:folded?Colors.redAccent:Colors.white54))]));}
+class _You extends StatelessWidget{final bool active,folded,seen;final String? hand;const _You({required this.active,required this.folded,required this.seen,this.hand});@override Widget build(BuildContext context)=>Container(padding:const EdgeInsets.symmetric(horizontal:14,vertical:7),decoration:BoxDecoration(color:active?const Color(0xFF0B4B48):_surface,borderRadius:BorderRadius.circular(14),border:Border.all(color:active?_amber:Colors.white10)),child:Row(mainAxisSize:MainAxisSize.min,children:[CircleAvatar(radius:17,child:Icon(folded?Icons.close:Icons.person,size:18)),const SizedBox(width:8),Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('YOU',style:TextStyle(fontWeight:FontWeight.w900,fontSize:11)),Text(folded?'PACKED':hand??(seen?'SEEN':'BLIND'),style:TextStyle(fontSize:9,color:folded?Colors.redAccent:_amber))]) ]));}
+class _MiniCard extends StatelessWidget{final bool hidden;final String value;const _MiniCard({required this.hidden,required this.value});@override Widget build(BuildContext context)=>Container(width:30,height:42,decoration:BoxDecoration(color:hidden?const Color(0xFF102B3D):Colors.white,borderRadius:BorderRadius.circular(5),border:Border.all(color:_amber.withValues(alpha:.5))),alignment:Alignment.center,child:Text(hidden?'★':value,style:TextStyle(color:hidden?_amber:(value.contains('♥')||value.contains('♦')?Colors.red:Colors.black),fontSize:10,fontWeight:FontWeight.w900)));}
+class _CardFace extends StatelessWidget{final String value;const _CardFace({required this.value});@override Widget build(BuildContext context){final red=value.contains('♥')||value.contains('♦');return Container(width:58,height:82,margin:const EdgeInsets.symmetric(horizontal:4),decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(8),boxShadow:[BoxShadow(color:Colors.black.withValues(alpha:.25),blurRadius:5)]),alignment:Alignment.center,child:Text(value,style:TextStyle(color:red?Colors.red:Colors.black,fontSize:19,fontWeight:FontWeight.w900)));}}

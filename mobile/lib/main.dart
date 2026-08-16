@@ -3,12 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'teen_patti_screen.dart';
 
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+const supabasePublishableKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  if (supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty) {
+    await Supabase.initialize(url: supabaseUrl, publishableKey: supabasePublishableKey);
   }
   runApp(const PlayArenaApp());
 }
@@ -24,7 +24,7 @@ class PlayArenaApp extends StatelessWidget {
       );
 }
 
-bool get configured => supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+bool get configured => supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 
 class EntryScreen extends StatelessWidget {
   const EntryScreen({super.key});

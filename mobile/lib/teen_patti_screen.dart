@@ -19,40 +19,57 @@ class _TeenPattiScreenState extends State<TeenPattiScreen> {
   void seeCards()=>setState((){seen=true;status='Your hand: ${TeenPattiEngine.evaluate(cards).label}';});
 
   void playerBet({bool raiseBet=false}){
-    if(!_canAct)return;
-    setState((){if(raiseBet)turnStake=min(turnStake*2,320);pot+=turnStake;moves++;status=raiseBet?'You raised to $turnStake':'You played ${seen?'Chaal':'Blind'} $turnStake';turn=1;botBusy=true;});
+    if(!_canAct){return;}
+    setState((){if(raiseBet){turnStake=min(turnStake*2,320);}pot+=turnStake;moves++;status=raiseBet?'You raised to $turnStake':'You played ${seen?'Chaal':'Blind'} $turnStake';turn=1;botBusy=true;});
     _runBots();
   }
 
   Future<void> _runBots() async {
     for(final bot in [1,2]){
-      if(finished)return;
-      if((bot==1&&bot2Folded)||(bot==2&&bot3Folded))continue;
+      if(finished){return;}
+      if((bot==1&&bot2Folded)||(bot==2&&bot3Folded)){continue;}
       await Future<void>.delayed(const Duration(milliseconds:650));
-      if(!mounted)return;
+      if(!mounted){return;}
       final hand=bot==1?bot2:bot3;
       final strength=TeenPattiEngine.evaluate(hand).rank.index;
       final shouldFold=moves>3 && strength<=1 && _random.nextInt(100)<35;
       setState((){
         turn=bot;
-        if(shouldFold){if(bot==1)bot2Folded=true;else bot3Folded=true;status='Player ${bot+1} packed';}
-        else{final botStake=turnStake;pot+=botStake;moves++;status='Player ${bot+1} played $botStake';}
+        if(shouldFold){
+          if(bot==1){bot2Folded=true;}else{bot3Folded=true;}
+          status='Player ${bot+1} packed';
+        } else {
+          final botStake=turnStake;pot+=botStake;moves++;status='Player ${bot+1} played $botStake';
+        }
       });
       if(_activePlayers<=1){_finishLastPlayer();return;}
     }
-    if(!mounted||finished)return;
+    if(!mounted||finished){return;}
     setState((){turn=0;botBusy=false;status='Your turn • Stake $turnStake';});
-    if(moves>=9)showdown();
+    if(moves>=9){showdown();}
   }
 
   int get _activePlayers=>(folded?0:1)+(bot2Folded?0:1)+(bot3Folded?0:1);
   bool get _canAct=>cards.isNotEmpty&&!folded&&!finished&&!botBusy&&turn==0;
 
-  void fold(){if(!_canAct)return;setState((){folded=true;moves++;status='You packed';});if(_activePlayers<=1){_finishLastPlayer();}else{setState(()=>botBusy=true);_runBots();}}
+  void fold(){
+    if(!_canAct){return;}
+    setState((){folded=true;moves++;status='You packed';});
+    if(_activePlayers<=1){_finishLastPlayer();}else{setState(()=>botBusy=true);_runBots();}
+  }
 
-  void _finishLastPlayer(){setState((){finished=true;revealBots=true;botBusy=false;if(!folded)status='You win • other players packed';else if(!bot2Folded)status='Player 2 wins';else status='Player 3 wins';});}
+  void _finishLastPlayer(){setState((){finished=true;revealBots=true;botBusy=false;if(!folded){status='You win • other players packed';}else if(!bot2Folded){status='Player 2 wins';}else{status='Player 3 wins';}});}
 
-  void showdown(){if(cards.isEmpty||finished)return;final active=<({int id,List<String> hand})>[];if(!folded)active.add((id:0,hand:cards));if(!bot2Folded)active.add((id:1,hand:bot2));if(!bot3Folded)active.add((id:2,hand:bot3));var best=active.first;for(final p in active.skip(1)){if(TeenPattiEngine.compare(p.hand,best.hand)>0)best=p;}setState((){finished=true;revealBots=true;seen=true;botBusy=false;status=best.id==0?'You win • ${TeenPattiEngine.evaluate(cards).label}':'Player ${best.id+1} wins • ${TeenPattiEngine.evaluate(best.hand).label}';});}
+  void showdown(){
+    if(cards.isEmpty||finished){return;}
+    final active=<({int id,List<String> hand})>[];
+    if(!folded){active.add((id:0,hand:cards));}
+    if(!bot2Folded){active.add((id:1,hand:bot2));}
+    if(!bot3Folded){active.add((id:2,hand:bot3));}
+    var best=active.first;
+    for(final p in active.skip(1)){if(TeenPattiEngine.compare(p.hand,best.hand)>0){best=p;}}
+    setState((){finished=true;revealBots=true;seen=true;botBusy=false;status=best.id==0?'You win • ${TeenPattiEngine.evaluate(cards).label}':'Player ${best.id+1} wins • ${TeenPattiEngine.evaluate(best.hand).label}';});
+  }
 
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Teen Patti • Preview')),body:SafeArea(child:Column(children:[
     Padding(padding:const EdgeInsets.all(10),child:Row(mainAxisAlignment:MainAxisAlignment.spaceBetween,children:[_Bot(name:'Player 2',cards:bot2,reveal:revealBots,folded:bot2Folded,active:turn==1&&!finished),Column(children:[const Text('POT',style:TextStyle(fontSize:11)),Text('$pot',style:const TextStyle(color:Colors.amber,fontSize:24,fontWeight:FontWeight.bold)),Text('Stake $turnStake',style:const TextStyle(fontSize:10))]),_Bot(name:'Player 3',cards:bot3,reveal:revealBots,folded:bot3Folded,active:turn==2&&!finished)])),

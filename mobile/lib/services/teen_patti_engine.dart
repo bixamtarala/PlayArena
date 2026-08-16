@@ -24,11 +24,15 @@ class TeenPattiEngine {
   static String suitOf(String card) => card.substring(card.length - 1);
 
   static TeenPattiHandResult evaluate(List<String> cards) {
-    if (cards.length != 3) throw ArgumentError('Teen Patti requires exactly 3 cards');
+    if (cards.length != 3) {
+      throw ArgumentError('Teen Patti requires exactly 3 cards');
+    }
     final values = cards.map(valueOf).toList()..sort((a,b) => b.compareTo(a));
     final suits = cards.map(suitOf).toSet();
     final counts = <int,int>{};
-    for (final v in values) counts[v] = (counts[v] ?? 0) + 1;
+    for (final v in values) {
+      counts[v] = (counts[v] ?? 0) + 1;
+    }
     final flush = suits.length == 1;
     final normalSequence = values[0] - 1 == values[1] && values[1] - 1 == values[2];
     final aceLow = values[0] == 14 && values[1] == 3 && values[2] == 2;

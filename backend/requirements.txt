@@ -4,3 +4,4 @@ pydantic==2.11.7
 pydantic-settings==2.10.1
 supabase==2.18.1
 redis==6.4.0
+pytest==8.4.1

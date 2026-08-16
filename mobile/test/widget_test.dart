@@ -6,6 +6,6 @@ void main() {
     await tester.pumpWidget(const PlayArenaApp());
     expect(find.text('PlayArena'), findsOneWidget);
     expect(find.text('Cricket + Teen Patti'), findsOneWidget);
-    expect(find.text('Open Preview'), findsOneWidget);
+    expect(find.text('OPEN PLAYARENA'), findsOneWidget);
   });
 }

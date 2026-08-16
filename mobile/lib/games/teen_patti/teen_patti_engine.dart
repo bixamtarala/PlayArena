@@ -3,7 +3,7 @@ import 'dart:math';
 enum Suit { spades, hearts, diamonds, clubs }
 
 class PlayingCard {
-  final int rank; // 2..14 where 14 = Ace
+  final int rank;
   final Suit suit;
   const PlayingCard(this.rank, this.suit);
 
@@ -78,7 +78,9 @@ class TeenPattiEngine {
     if (h.sequence && r[0] == 14 && r[1] == 3 && r[2] == 2) return [3, 2, 1];
     if (h.pair) {
       final counts = <int, int>{};
-      for (final rank in r) counts[rank] = (counts[rank] ?? 0) + 1;
+      for (final rank in r) {
+        counts[rank] = (counts[rank] ?? 0) + 1;
+      }
       final pairRank = counts.entries.firstWhere((e) => e.value == 2).key;
       final kicker = counts.entries.firstWhere((e) => e.value == 1).key;
       return [pairRank, kicker, 0];
